@@ -13,7 +13,7 @@ go build app.go
 ###### Example:
 A callcenter with four operators, two with PSTN numbers and two with SIP addresses
 ```
-./app -port 8080 -operators +2547xxxxxx,+2547xxxxxx,agent1@example.com,agent2@example.com
+./app -port 8080 -virtualNumber +2547xxxxxxxx -operators +2547xxxxxx,+2547xxxxxx,agent1@example.com,agent2@example.com
 ```
 
 ###### Call queueing and dequeueing
