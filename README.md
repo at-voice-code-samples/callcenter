@@ -1,4 +1,7 @@
 ##### This is a simple but functionally complete call center app
+This version asks the caller to call back when all operators are on call  
+See the "queue" branch for a version that places the caller on hold  
+until an operator is free.
 
 ###### Build:
 ```
