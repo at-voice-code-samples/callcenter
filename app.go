@@ -38,7 +38,10 @@ func main () {
 		// Check if it's an operator calling and dequeue
 		// If the queue is empty this will just hang up, which is fine
 		if _,exists := operators[callerNumber]; exists {
-			fmt.Fprintf(w, `<Response><Dequeue phoneNumber="%s"/></Response>`, virtualNumber)
+			fmt.Fprintf(w, `<Response>
+					  <Say>Hello, all our operators are currently on call. Please hold</Say>
+					  <Dequeue phoneNumber="%s"/>
+					</Response>`, virtualNumber)
 			return
 		}
 
