@@ -20,5 +20,5 @@ A callcenter with four operators, two with PSTN numbers and two with SIP address
 For this version, when all available operators are busy, consequent callers are placed on hold.  
 To dequeue callers on hold, a free operator simply calls the virtualnumber and gets connected  
 to one of the callers on hold.  
-Note that for operators on SIP phones, the callback for each SIP address has to be configured to
+Note that for operators on SIP phones, the callback for each SIP address has to be configured to  
 respond with the dequeue action for this to work.
