@@ -7,10 +7,45 @@ import (
 	"fmt"
 	"net/http"
 	"math/rand"
+	"sync"
 )
 
 var operators = make(map[string]bool)
 var sessions = make(map[string]string)
+
+var operatorsMutex = &sync.Mutex{}
+var sessionsMutex = &sync.Mutex{}
+
+func writeOperators (number string, state bool) {
+	operatorsMutex.Lock()
+	defer operatorsMutex.Unlock()
+	operators[number] = state
+}
+
+func readOperators (number string) (bool, bool) {
+	operatorsMutex.Lock()
+	defer operatorsMutex.Unlock()
+	op, exists := operators[number]
+	return op, exists
+}
+
+// Write a nil-valued number to delete the session from the map
+func writeSessions (sessionId string, number string) {
+	sessionsMutex.Lock()
+	defer sessionsMutex.Unlock()
+	if number == "" {
+		delete(sessions, sessionId)
+	}else{
+		sessions[sessionId] = number
+	}
+}
+
+func readSessions (sessionId string) (string, bool) {
+	sessionsMutex.Lock()
+	defer sessionsMutex.Unlock()
+	op, exists := sessions[sessionId]
+	return op, exists
+}
 
 func main () {
 	// Command-line flags
@@ -31,23 +66,25 @@ func main () {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		active := r.FormValue("isActive")
 		sessionId := r.FormValue("sessionId")
-		op, sessionExists := sessions[sessionId]
+		op, sessionExists := readSessions(sessionId)
 		
 		if active == "0" {
 			// Toggle operator's availability status
 			if sessionExists {
-				operators[op] = false
-				delete(sessions, sessionId)
+				writeOperators(op, false)
+				writeSessions(sessionId, "")
 			}
 		}else {
 			// Create session
 			if !sessionExists {
 				inactiveOps := []string{}
+				operatorsMutex.Lock()
 				for op, isActive := range operators {
 					if !isActive {
 						inactiveOps = append(inactiveOps, op)
 					}
 				}
+				operatorsMutex.Unlock()
 				lenOps := len(inactiveOps)
 				if lenOps == 0 {
 					// All operators are busy
@@ -59,8 +96,8 @@ func main () {
 						randomIndex = rand.Intn(lenOps - 1)
 					}
 					operator := inactiveOps[randomIndex]
-					operators[operator] = true
-					sessions[sessionId] = operator
+					writeOperators(operator, true)
+					writeSessions(sessionId, operator)
 					fmt.Fprintf(w, `<Response><Dial phoneNumbers="%s"/></Response>`, operator)
 				}
 			}
