@@ -9,7 +9,8 @@ import (
 	"math/rand"
 	"sync"
 	"net/url"
-	"bytes"
+	"io/ioutil"
+	"encoding/xml"
 	"github.com/chzyer/readline"
 )
 
@@ -17,9 +18,29 @@ var apiKey string
 var userName string
 var operators = make(map[string]bool)
 var sessions = make(map[string]string)
+var transfers = make(map[string]string)
 
 var operatorsMutex = &sync.Mutex{}
 var sessionsMutex = &sync.Mutex{}
+var transfersMutex = &sync.Mutex{}
+
+func addTransfer (sessionId string, number string){
+	transfersMutex.Lock()
+	defer transfersMutex.Unlock()
+	transfers[sessionId] = number
+}
+
+func delTransfer (sessionId string){
+	transfersMutex.Lock()
+	defer transfersMutex.Unlock()
+	delete(transfers, sessionId)
+}
+
+func getTransfer (sessionId string) string{
+	transfersMutex.Lock()
+	defer transfersMutex.Unlock()
+	return transfers[sessionId]
+}
 
 func writeOperators (number string, state bool) {
 	operatorsMutex.Lock()
@@ -70,14 +91,38 @@ func transfer (sessionId string, operatorNumber string) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Apikey", apiKey)
 	resp, err := http.DefaultClient.Do(req)
-	defer resp.Body.Close()
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		fmt.Println("Call transfer HTTP request failed:", err)
 		return
 	}
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	fmt.Printf("Response: %s\n", buf.String())
+	body, err := ioutil.ReadAll(resp.Body)
+
+	type callTransferResult struct {
+		XMLName xml.Name `xml:"callTransferResponse"`
+		Status string `xml:"status"`
+		ErrorMessage string `xml:"errorMessage"`
+	}
+
+	res := callTransferResult{}
+	err = xml.Unmarshal(body, &res)
+	if err != nil {
+		fmt.Println("Could not parse call transfer result")
+		return
+	}
+	switch res.Status {
+	case "Success":
+		fmt.Println("Call transfer successful")
+		addTransfer(sessionId, operatorNumber)
+		// Mark the operator as busy
+		writeOperators(operatorNumber, true)
+	case "Aborted":
+		fmt.Printf("Call transfer failed with error: %s\n", res.ErrorMessage)
+	default:
+		fmt.Printf("Unknown Status: %s\n", res.Status)
+	}
 }
 
 func main () {
@@ -108,15 +153,6 @@ func main () {
 		sessionId := r.FormValue("sessionId")
 		callerNumber := r.FormValue("callerNumber")
 		op, sessionExists := readSessions(sessionId)
-		// Check if it's an operator calling and dequeue
-		// If the queue is empty this will just hang up, which is fine
-		if _,exists := readOperators(callerNumber); exists {
-			fmt.Fprintf(w, `<Response>
-					  <Dequeue phoneNumber="%s"/>
-					</Response>`, virtualNumber)
-			return
-		}
-
 		if active == "0" {
 			// Toggle operator's availability status
 			if sessionExists {
@@ -124,6 +160,15 @@ func main () {
 				writeSessions(sessionId, "")
 			}
 		}else {
+			// Check if it's an operator calling and dequeue
+			// If the queue is empty this will just hang up, which is fine
+			if _,exists := readOperators(callerNumber); exists {
+				fmt.Fprintf(w, `<Response>
+						  <Dequeue phoneNumber="%s"/>
+						</Response>`, virtualNumber)
+				return
+			}
+			
 			// Create session
 			if !sessionExists {
 				inactiveOps := []string{}
@@ -150,6 +195,28 @@ func main () {
 					fmt.Fprintf(w, `<Response><Dial phoneNumbers="%s"/></Response>`, operator)
 				}
 			}
+		}
+	})
+
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		// Check for the callTransferState event
+		callTransferState := r.FormValue("callTransferState")
+		sessionId := r.FormValue("sessionId")
+		switch callTransferState {
+		case "CalleeHangup":
+			// Free up this operator
+			operator,_ := readSessions(sessionId)
+			writeOperators(operator, false)
+			// Switch the session over to the transferee
+			writeSessions(sessionId, getTransfer(sessionId))
+		case "Completed":
+			// Free up this operator
+			operator := getTransfer(sessionId)
+			writeOperators(operator, false)
+			delTransfer(sessionId)
+		// default:
+		// 	r.ParseForm()
+		// 	fmt.Println(r.PostForm)
 		}
 	})
 
