@@ -70,10 +70,8 @@ func main () {
 		
 		if active == "0" {
 			// Toggle operator's availability status
-			if sessionExists {
-				writeOperators(op, false)
-				writeSessions(sessionId, "")
-			}
+			writeOperators(op, false)
+			writeSessions(sessionId, "")
 		}else {
 			// Create session
 			if !sessionExists {
