@@ -71,7 +71,7 @@ func main () {
 		op, sessionExists := readSessions(sessionId)
 		// Check if it's an operator calling and dequeue
 		// If the queue is empty this will just hang up, which is fine
-		if _,exists := operators[callerNumber]; exists {
+		if _,exists := readOperators(callerNumber); exists {
 			fmt.Fprintf(w, `<Response>
 					  <Dequeue phoneNumber="%s"/>
 					</Response>`, virtualNumber)
