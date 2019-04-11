@@ -96,7 +96,7 @@ func main () {
 				lenOps := len(inactiveOps)
 				if lenOps == 0 {
 					// All operators are busy
-					fmt.Fprintf(w, `<Response><Enqueue/></Response>`)
+					fmt.Fprintf(w, `<Response><Say>Hello, please hold while we connect you to the next available operator</Say><Enqueue/></Response>`)
 				}else{
 					// There is at least one available operator
 					var randomIndex int
