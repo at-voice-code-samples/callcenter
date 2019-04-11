@@ -214,12 +214,9 @@ func main () {
 			operator := getTransfer(sessionId)
 			writeOperators(operator, false)
 			delTransfer(sessionId)
-		// default:
-		// 	r.ParseForm()
-		// 	fmt.Println(r.PostForm)
 		}
 	})
-
+	
 	go http.ListenAndServe(":"+port, nil)
 
 	l, err := readline.New("\033[32m»\033[0m ")
